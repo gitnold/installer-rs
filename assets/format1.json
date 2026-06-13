@@ -1,0 +1,59 @@
+{
+  "package_managers": {
+    "apt": {
+      "os": "debian",
+      "packages": [
+        {
+          "name": "zoxide",
+          "version": "0.9.0",
+          "repo_name": "zoxide"
+        },
+        {
+          "name": "python",
+          "version": "3.13",
+          "repo_name": "python3"
+        }
+      ]
+    },
+    "dnf": {
+      "os": "fedora",
+      "packages": [
+        {
+          "name": "zoxide",
+          "version": "0.9.0",
+          "repo_name": "zoxide"
+        },
+        {
+          "name": "python",
+          "version": "3.13",
+          "repo_name": "python3"
+        },
+        {
+            "name" : "go",
+            "version" : 2.3,
+            "repo_name" : "golang",
+        }
+      ]
+    }
+  },
+
+  "custom_packages": [
+    {
+      "name": "neovim-nightly",
+      "version": "latest",
+      "install_steps": [
+        "git clone https://github.com/neovim/neovim",
+        "cd neovim && make",
+        "sudo make install"
+      ],
+      "post_install": [
+        "nvim --version"
+      ]
+    },
+    {
+        "name" : "rustup",
+        "version" : "2.3",
+        "install_steps" : ["curl https://somelink.com | bash"]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+[zoxide]
+version = 2.3
+commands = ["zoxide init bash | source", "hello world"]
+
+[mysql]
+version = 8.0
+
+
