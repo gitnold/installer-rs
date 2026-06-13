@@ -31,20 +31,6 @@ impl Tokens {
         Self { options: args }
     }
 
-    /// Convert raw argument strings into a list of tokens.
-    ///
-    /// # Bugs fixed
-    ///
-    /// - **Index never advanced**: the old code used `let index = 0` (immutable) and
-    ///   `index + 1;` (a discarded no-op), causing every flag to read `args[1]`.
-    ///   The loop would never terminate on unexpected input and could index out of
-    ///   bounds.
-    /// - **Out-of-bounds on value-bearing flags**: `-a`, `-p`, `-c` always read
-    ///   `args[index + 1]` without checking whether that index exists.
-    /// - **Empty `Illegal` string**: the catch-all `_` branch stored `String::from("")`,
-    ///   making error messages useless.
-    /// - **Program name included**: the caller previously passed `env::args().collect()`
-    ///   which includes `argv[0]`; we now skip the first element.
     pub fn from_strs(args: Vec<String>) -> Self {
 
         // NOTE: lexer doesn't check whether next token is a possible option for args having values.

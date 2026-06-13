@@ -31,13 +31,6 @@ pub mod config_parser {
             Ok(config)
         }
 
-        /// Read config from a JSON file path.
-        ///
-        /// # Bugs fixed
-        ///
-        /// - **`.expect()` on file read**: the old code panicked if the file was
-        ///   missing, which is user-hostile.  Now we return the `io::Error` wrapped
-        ///   in a `serde_json::Error` via `map_err`.
         pub fn from_file(path: &str) -> Result<Config, serde_json::Error> {
             let json_contents =
                 std::fs::read_to_string(path).map_err(|e| {
@@ -50,15 +43,7 @@ pub mod config_parser {
             serde_json::to_string_pretty(self)
         }
 
-        /// Write the config as pretty-printed JSON to a file.
-        ///
-        /// # Bugs fixed
-        ///
-        /// - **`File::open` used instead of `File::create`**: `open` opens an
-        ///   existing file for *reading* only; writes silently fail.  Changed to
-        ///   `File::create`.
-        /// - **Write result discarded**: the return value of `file.write()` was
-        ///   ignored, so silent failures went undetected.
+
         pub fn write_to_file(&self, path: &str) -> Result<bool, serde_json::Error> {
             let string_rep = serde_json::to_string_pretty(self)?;
             let mut file = File::create(path).map_err(|e| serde_json::Error::io(e).into())?;
@@ -124,13 +109,7 @@ pub mod runner {
         String::new()
     }
 
-    /// Run a package-manager install command (e.g. `apt install <package>`).
-    ///
-    /// # Bugs fixed
-    ///
-    /// - **Single-arg bundling**: the old code wrote `.arg(format!("install {}", package))`
-    ///   so the shell tried `dnf "install zoxide"` instead of `dnf install zoxide`.
-    ///   We now pass `"install"` and the package as separate arguments.
+
     pub fn run_cmd(pkg_man: &str, package: &str) -> Result<ExitStatus, Error> {
         Command::new(pkg_man).arg("install").arg(package).status()
     }

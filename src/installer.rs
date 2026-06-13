@@ -5,17 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-/// Install all packages for a given package manager from the config.
-///
-/// # Bugs fixed
-///
-/// - **Command never executed**: the old code created a `Command` but never called
-///   `.status()`/`.output()`/`.spawn()`, so nothing was run.
-/// - **Single-arg bundling**: `sudo` + everything was passed as one argument via
-///   `.arg(format!(...))`.  The kernel then looked for a binary literally named
-///   `"sudo dnf install pkg1 pkg2"`.  Now each component is a separate `.arg()` call.
-/// - **`HashMap::index` panic**: `config.package_managers[pkg_man]` panics if the key
-///   is missing.  Changed to `.get()` with an early return.
+
 pub fn install(config: &Config, pkg_man: &str) {
     let Some(pkgman) = config.package_managers.get(pkg_man) else {
         eprintln!("Package manager '{pkg_man}' not found in config");
@@ -39,21 +29,6 @@ pub fn install(config: &Config, pkg_man: &str) {
         Err(e) => eprintln!("Failed to execute installation: {e}"),
     }
 }
-
-/// Pull the latest source and rebuild the tool from source.
-///
-/// # Bugs fixed
-///
-/// - **Unused `version` parameter**: removed; versioning should come from git tags
-///   or `Cargo.toml`.
-/// - **`fs::copy` on a directory**: `fs::copy` only works on *files*.  The old code
-///   tried to copy `~/Applications/mig/` (a directory).  Now we compute the binary
-///   path (`target/release/<binary-name>`).
-/// - **`env::set_current_dir` without restore**: we now save the original working
-///   directory and restore it after the build.
-/// - **`git pull` result discarded**: the old code used `.expect()` on the status
-///   object (which is `Result<ExitStatus>`, so expect would never fire for a
-///   non-zero exit).  Now we check `git pull`'s success before proceeding.
 pub fn self_install() {
     let orig_dir = env::current_dir().ok();
     let install_path = Path::new(constants::INSTALL_PATH);

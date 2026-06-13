@@ -84,13 +84,6 @@ impl Parser {
         }
     }
 
-    /// Execute the parsed command against the provided JSON config.
-    ///
-    /// # Bugs fixed
-    ///
-    /// - **Custom commands were never dispatched**: `evaluate` only checked
-    ///   `install`/`add_pkg` paths; custom commands were parsed but silently dropped.
-    ///   Now `customcmd_ctx` is checked and the command is run via the shell.
     pub fn evaluate(&self, json_config: Option<&mut Config>) {
         if self.customcmd_ctx.is_true() {
             if let Some(cmd) = &self.config.custom_cmd {
@@ -120,20 +113,7 @@ impl Parser {
         }
     }
 
-    /// Parse the token list and populate internal config/context.
-    ///
-    /// # Bugs fixed
-    ///
-    /// - **`PackageManager::CustomCmd` panicked**: the match arm called `unimplemented!()`.
-    ///   Now it sets the package manager field to `"custom"`.
-    /// - **`install_ctx.pkg_set` overwrite at loop bottom**: the line
-    ///   `self.install_ctx.pkg_set = self.pkg_ctx.pkgman_set;` ran *after every token*,
-    ///   undoing the correct `pkg_set = true` set by `AddPackage`. This meant `-a pkg -p dnf -i`
-    ///   would never see `install_ctx.is_true() == true`. Removed the line; each token arm
-    ///   is responsible for setting its own context.
-    /// - **`Illegal` early exit**: when an illegal token was encountered, `break` stopped
-    ///   parsing entirely but returned no error to the caller. We now collect an error
-    ///   string and break cleanly.
+
     pub fn parse(&mut self) -> &mut Self {
         for option in &self.tokens.options {
             match option {
