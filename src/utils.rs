@@ -1,6 +1,39 @@
+use std::collections::HashMap;
+use serde::de::Unexpected::Option;
+
+// letters in use -a, -h, -u, -p, -i, -c, v
 pub fn print_help() {
-    println!("Welcome to backup installer ^_^");
-    println!("Help messages go here");
+    let options = [
+        ("-h", "-h",                           "Print the help message"),
+        ("-a", "-a <package name>",             "Add a package to the config / package database"),
+        ("-u", "-u",                            "Update the installer to the newest version"),
+        ("-p", "-p <package manager>",          "Specifies the package manager to be used"),
+        ("-i", "-i or -i <package>",            "Install packages listed in the config files; passing a value installs that package only"),
+        ("-c", "-c \"echo 'me' >> ~/.bashrc\"", "Run a command after the specified operation"),
+    ];
+
+    // Compute column widths from the widest value in each column (including header)
+    let w0 = options.iter().map(|(f, _, _)| f.len()).max().unwrap_or(0).max("Flag".len());
+    let w1 = options.iter().map(|(_, u, _)| u.len()).max().unwrap_or(0).max("Usage".len());
+    let w2 = options.iter().map(|(_, _, d)| d.len()).max().unwrap_or(0).max("Description".len());
+
+    let sep = format!(
+        "+-{}-+-{}-+-{}-+",
+        "-".repeat(w0),
+        "-".repeat(w1),
+        "-".repeat(w2),
+    );
+
+    println!("Welcome to the backup installer ^_^\n");
+    println!("{sep}");
+    println!("| {:<w0$} | {:<w1$} | {:<w2$} |", "Flag", "Usage", "Description");
+    println!("{sep}");
+
+    for (flag, usage, desc) in &options {
+        println!("| {:<w0$} | {:<w1$} | {:<w2$} |", flag, usage, desc);
+    }
+
+    println!("{sep}");
 }
 pub mod config_parser {
     use serde::{Deserialize, Serialize};
