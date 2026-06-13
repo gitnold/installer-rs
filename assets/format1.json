@@ -30,8 +30,8 @@
         },
         {
             "name" : "go",
-            "version" : 2.3,
-            "repo_name" : "golang",
+            "version" : "2.3",
+            "repo_name" : "golang"
         }
       ]
     }

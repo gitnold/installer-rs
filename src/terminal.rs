@@ -1,6 +1,8 @@
 
 
 // TODO: add stylings: bold, colours etc.
+// TODO: have a token representation for precise error location esp when giving feedback
+// above only feasible when token stream is high e.g via addition of more cliu args.
 
 pub mod mig_debug {
     #[cfg(debug_assertions)]
