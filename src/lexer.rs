@@ -1,5 +1,5 @@
 /// Supported package manager backends (apt, dnf, git, custom commands).
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum PackageManager {
     Dnf,
     Apt,
@@ -9,7 +9,7 @@ pub enum PackageManager {
 }
 
 /// Token types produced by the lexer from raw CLI arguments.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Install,
     PackageManager(PackageManager),
@@ -24,6 +24,34 @@ pub enum Token {
 #[derive(Debug)]
 pub struct Tokens {
     pub options: Vec<Token>,
+}
+
+impl PartialEq for Tokens {
+    fn eq(&self, other: &Tokens) -> bool {
+        let mut equal = true;
+        let mut index = 0;
+        let mut count_equal = 0;
+
+        if self.options.len() != other.options.len() {
+            return false;
+        }
+
+        for option in &self.options {
+            if *option == other.options[index] {
+                count_equal += 1;
+            } else {
+                equal = false;
+                break;
+            }
+            index += 1;
+        }
+
+        if count_equal == self.options.len() {
+            equal = true;
+        }
+
+        equal
+    }
 }
 
 impl Tokens {
@@ -93,5 +121,27 @@ impl Tokens {
         }
 
         Self { options }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_parse() {
+        let test_strings = vec!["-h", "-p", "dnf", "-a", "zoxide", "-i", "-u", "-c", "echo $SHELL"];
+        let tokens = vec![
+            Token::Help,
+            Token::PackageManager(PackageManager::Dnf),
+            Token::AddPackage(String::from("zoxide")),
+            Token::Install,
+            Token::SelfUpdate,
+            Token::CustomCmd(String::from("echo $SHELL"))
+        ];
+
+        let args = test_strings.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        let lexer = Tokens::from_strs(args);
+
+        assert_eq!(lexer.options, tokens);
     }
 }

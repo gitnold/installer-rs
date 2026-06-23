@@ -119,7 +119,7 @@ impl Parser {
             match option {
                 Token::Install => self.config.install = true,
 
-                Token::SelfUpdate => installer::self_install(),
+                Token::SelfUpdate => installer::Executor::self_install(),
 
                 Token::PackageManager(s) => match s {
                     PackageManager::Dnf => {
@@ -171,5 +171,43 @@ impl Parser {
             }
         }
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn initialize_parser() -> Parser {
+        let test_strings = vec!["-h", "-p", "dnf", "-a", "zoxide", "-i", "-u", "-c", "echo $SHELL"];
+        let args = test_strings.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        let lexer = Tokens::from_strs(args);
+
+        let mut parser = Parser::new(lexer);
+        parser.parse();
+
+        parser
+
+    }
+    #[test]
+    fn test_parse() {
+        // setup test cases
+    }
+
+    #[test]
+    fn test_install_context() {
+        let parser = initialize_parser();
+
+        // ensure install context is true
+        assert_eq!(parser.install_ctx.is_true(), true);
+    }
+
+    #[test]
+    fn test_package_manager() {
+        let parser = initialize_parser();
+
+        // assert the correct package manager is set.
+        assert_eq!(parser.config.pkg_man.is_empty(), false);
+        assert_eq!(parser.config.pkg_man, "dnf".to_string());
     }
 }

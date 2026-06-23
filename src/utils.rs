@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-use serde::de::Unexpected::Option;
 
 // letters in use -a, -h, -u, -p, -i, -c, v
 pub fn print_help() {
@@ -157,6 +155,7 @@ pub mod runner {
 
 pub mod constants {
     pub const URL: &str = "https://github.com/";
+    // FIX: check the git clone folder location, specify explicitly or rename the repo to mig
     pub const INSTALL_PATH: &str = "~/Applications/mig/";
     pub const DEST_PATH: &str = "~/.local/bin/";
     pub const CONFIG_PATH: &str = "~/Applications/installer-rs/";
