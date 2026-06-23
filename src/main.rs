@@ -16,5 +16,7 @@ fn main() -> Result<(), serde_json::Error> {
     let mut config = utils::config_parser::Config::from_file("./assets/format1.json")?;
     cmd_parser.evaluate(Some(&mut config));
 
+
+
     Ok(())
 }

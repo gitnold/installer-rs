@@ -10,7 +10,6 @@ pub fn print_help() {
         ("-c", "-c \"echo 'me' >> ~/.bashrc\"", "Run a command after the specified operation"),
     ];
 
-    // Compute column widths from the widest value in each column (including header)
     let w0 = options.iter().map(|(f, _, _)| f.len()).max().unwrap_or(0).max("Flag".len());
     let w1 = options.iter().map(|(_, u, _)| u.len()).max().unwrap_or(0).max("Usage".len());
     let w2 = options.iter().map(|(_, _, d)| d.len()).max().unwrap_or(0).max("Description".len());
@@ -33,6 +32,7 @@ pub fn print_help() {
 
     println!("{sep}");
 }
+
 pub mod config_parser {
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
@@ -49,6 +49,7 @@ pub mod config_parser {
         pub custom_packages: Vec<CustomPackage>,
     }
 
+    #[allow(dead_code)]
     impl Config {
         pub fn new() -> Self {
             Self {
@@ -74,7 +75,6 @@ pub mod config_parser {
             serde_json::to_string_pretty(self)
         }
 
-
         pub fn write_to_file(&self, path: &str) -> Result<bool, serde_json::Error> {
             let string_rep = serde_json::to_string_pretty(self)?;
             let mut file = File::create(path).map_err(|e| serde_json::Error::io(e).into())?;
@@ -82,13 +82,13 @@ pub mod config_parser {
                 .map_err(|e| serde_json::Error::io(e).into())?;
             Ok(true)
         }
-        pub fn add_package(&mut self, package: &str, pkg_man: &str)  {
+
+        pub fn add_package(&mut self, package: &str, pkg_man: &str) {
             let pkgman_packages = self.package_managers
                 .entry(pkg_man.to_string())
                 .or_insert(PackageManager{os: get_os(), packages: Vec::new()});
             pkgman_packages.packages.push(RepoPackage{name: package.to_string(), version: None, repo_name: package.to_string()});
         }
-
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -104,7 +104,6 @@ pub mod config_parser {
         #[serde(default)]
         pub version: Option<String>,
 
-        // OS-specific repository name
         pub repo_name: String,
     }
 
@@ -129,7 +128,65 @@ pub mod runner {
         process::{Command, ExitStatus},
     };
 
-    /// Read the OS identifier from `/etc/os-release`.
+    pub trait Runner {
+        fn run_install(&self, pkg_man: &str, packages: &[&str]) -> Result<ExitStatus, Error>;
+        fn run_shell(&self, cmd: &str) -> Result<ExitStatus, Error>;
+    }
+
+    pub struct SystemRunner;
+    impl Runner for SystemRunner {
+        fn run_install(&self, pkg_man: &str, packages: &[&str]) -> Result<ExitStatus, Error> {
+            let mut cmd = Command::new("sudo");
+            cmd.arg(pkg_man).arg("install");
+            for pkg in packages {
+                cmd.arg(pkg);
+            }
+            cmd.status()
+        }
+
+        fn run_shell(&self, cmd: &str) -> Result<ExitStatus, Error> {
+            Command::new("sh").arg("-c").arg(cmd).status()
+        }
+    }
+
+    #[cfg(test)]
+    pub mod test_util {
+        use super::*;
+        use std::sync::Mutex;
+
+        pub struct MockRunner {
+            pub install_calls: Mutex<Vec<(String, Vec<String>)>>,
+            pub shell_calls: Mutex<Vec<String>>,
+        }
+
+        impl MockRunner {
+            pub fn new() -> Self {
+                Self {
+                    install_calls: Mutex::new(Vec::new()),
+                    shell_calls: Mutex::new(Vec::new()),
+                }
+            }
+        }
+
+        impl Runner for MockRunner {
+            fn run_install(&self, pkg_man: &str, packages: &[&str]) -> Result<ExitStatus, Error> {
+                let pkgs: Vec<String> = packages.iter().map(|s| s.to_string()).collect();
+                self.install_calls.lock().unwrap().push((pkg_man.to_string(), pkgs));
+                // Return a fake success status
+                unsafe {
+                    Ok(std::mem::transmute::<i32, ExitStatus>(0))
+                }
+            }
+
+            fn run_shell(&self, cmd: &str) -> Result<ExitStatus, Error> {
+                self.shell_calls.lock().unwrap().push(cmd.to_string());
+                unsafe {
+                    Ok(std::mem::transmute::<i32, ExitStatus>(0))
+                }
+            }
+        }
+    }
+
     pub fn get_os() -> String {
         let content = fs::read_to_string("/etc/os-release").unwrap_or_default();
         for line in content.lines() {
@@ -140,23 +197,22 @@ pub mod runner {
         String::new()
     }
 
-
+    #[allow(dead_code)]
     pub fn run_cmd(pkg_man: &str, package: &str) -> Result<ExitStatus, Error> {
-        Command::new(pkg_man).arg("install").arg(package).status()
+        Command::new("sudo").arg(pkg_man).arg("install").arg(package).status()
     }
 
-    /// Execute an arbitrary shell command via `sh -c`.
+    #[allow(dead_code)]
     pub fn run_custom(cmd: &str) -> Result<ExitStatus, Error> {
-        //TODO: check if code below has any potential security risks
         Command::new("sh").arg("-c").arg(cmd).status()
     }
 }
 
-
 pub mod constants {
+    #[allow(dead_code)]
     pub const URL: &str = "https://github.com/";
-    // FIX: check the git clone folder location, specify explicitly or rename the repo to mig
     pub const INSTALL_PATH: &str = "~/Applications/mig/";
     pub const DEST_PATH: &str = "~/.local/bin/";
+    #[allow(dead_code)]
     pub const CONFIG_PATH: &str = "~/Applications/installer-rs/";
 }

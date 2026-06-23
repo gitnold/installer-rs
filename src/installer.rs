@@ -1,53 +1,77 @@
 use crate::utils::config_parser::Config;
 use crate::utils::constants;
+use crate::utils::runner::{Runner, SystemRunner};
 use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-
-// NOTE: consinder an action list in later stages.
 pub struct Executor<'a> {
     config: &'a Config,
-    pkg_man: &'a str,
-    install_command: String
 }
 
+#[allow(dead_code)]
 impl<'a> Executor<'a> {
-    fn new(config: &'a Config, pkg_man: &'a str) -> Self {
-        Self {
-            config,
-            pkg_man,
-            install_command: String::new()
-        }
+    pub fn new(config: &'a Config) -> Self {
+        Self { config }
     }
 
-    pub fn install(&self) {
-        let Some(pkgman) = self.config.package_managers.get(self.pkg_man) else {
-            let pkgmanager = self.pkg_man;
-            eprintln!("Package manager '{pkgmanager}' not found in config");
+    pub fn install_all(&self) {
+        self.install_all_with_runner(&SystemRunner);
+    }
+
+    pub fn install_all_with_runner(&self, runner: &dyn Runner) {
+        for (pkg_man, pm) in &self.config.package_managers {
+            let packages: Vec<&str> = pm.packages.iter().map(|p| p.repo_name.as_str()).collect();
+            if packages.is_empty() {
+                continue;
+            }
+            match runner.run_install(pkg_man, &packages) {
+                Ok(s) if s.success() => println!("{pkg_man} installation completed."),
+                Ok(s) => eprintln!("{pkg_man} installation failed with status: {s}"),
+                Err(e) => eprintln!("{pkg_man} installation failed: {e}"),
+            }
+        }
+        self.install_custom_packages_with_runner(runner);
+    }
+
+    pub fn install_pkg_man(&self, pkg_man: &str) {
+        let Some(pm) = self.config.package_managers.get(pkg_man) else {
+            eprintln!("Package manager '{pkg_man}' not found in config");
             return;
         };
-
-        let packages: Vec<&str> = pkgman
-            .packages
-            .iter()
-            .map(|p| p.repo_name.as_str())
-            .collect();
+        let packages: Vec<&str> = pm.packages.iter().map(|p| p.repo_name.as_str()).collect();
         if packages.is_empty() {
             return;
         }
+        let runner = SystemRunner;
+        match runner.run_install(pkg_man, &packages) {
+            Ok(s) if s.success() => println!("{pkg_man} installation completed."),
+            Ok(s) => eprintln!("{pkg_man} installation failed with status: {s}"),
+            Err(e) => eprintln!("{pkg_man} installation failed: {e}"),
+        }
+    }
 
-        let status = Command::new("sudo")
-            .arg(self.pkg_man)
-            .arg("install")
-            .args(&packages)
-            .status();
+    pub fn install_custom_packages(&self) {
+        self.install_custom_packages_with_runner(&SystemRunner);
+    }
 
-        match status {
-            Ok(s) if s.success() => println!("Installation completed successfully."),
-            Ok(s) => eprintln!("Installation failed with status: {s}"),
-            Err(e) => eprintln!("Failed to execute installation: {e}"),
+    pub fn install_custom_packages_with_runner(&self, runner: &dyn Runner) {
+        for pkg in &self.config.custom_packages {
+            println!("Installing custom package: {}", pkg.name);
+            for (i, step) in pkg.install_steps.iter().enumerate() {
+                println!("  Step {}/{}: {step}", i + 1, pkg.install_steps.len());
+                if let Err(e) = runner.run_shell(step) {
+                    eprintln!("  Install step failed: {e}");
+                    break;
+                }
+            }
+            for cmd in &pkg.post_install {
+                println!("  Post-install: {cmd}");
+                if let Err(e) = runner.run_shell(cmd) {
+                    eprintln!("  Post-install command failed: {e}");
+                }
+            }
         }
     }
 
@@ -60,7 +84,6 @@ impl<'a> Executor<'a> {
             return;
         }
 
-        // Pull latest changes; abort on failure.
         if let Err(e) = Command::new("git").arg("pull").status().map(|s| {
             if !s.success() {
                 eprintln!("git pull exited with non-zero status: {s}");
@@ -85,7 +108,6 @@ impl<'a> Executor<'a> {
             }
         }
 
-        // Copy the built binary (not the source directory).
         let binary_path = install_path.join("target/release/mig");
         let dest = Path::new(constants::DEST_PATH).join("mig");
         if let Err(error) = fs::copy(&binary_path, &dest) {
@@ -96,7 +118,6 @@ impl<'a> Executor<'a> {
             );
         }
 
-        // Restore original working directory.
         let _ = orig_dir.map(env::set_current_dir);
     }
 }
@@ -104,20 +125,70 @@ impl<'a> Executor<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::runner::test_util::MockRunner;
+    use crate::utils::config_parser::{CustomPackage, PackageManager as ConfigPkgMan, RepoPackage};
+    use std::collections::HashMap;
 
-    #[test]
-    fn setup_env() {
-        // initialize the lexer and parser
+    fn sample_config() -> Config {
+        let mut package_managers = HashMap::new();
+        package_managers.insert(
+            "apt".to_string(),
+            ConfigPkgMan {
+                os: "debian".to_string(),
+                packages: vec![
+                    RepoPackage { name: "zoxide".into(), version: None, repo_name: "zoxide".into() },
+                ],
+            },
+        );
+        Config {
+            package_managers,
+            custom_packages: vec![
+                CustomPackage {
+                    name: "neovim".into(),
+                    version: Some("latest".into()),
+                    install_steps: vec!["git clone https://github.com/neovim/neovim".into()],
+                    post_install: vec!["nvim --version".into()],
+                },
+            ],
+        }
     }
-    // test the progress of the self install step, return values etc.
-    #[test]
-    fn test_self_install() {
 
+    #[test]
+    fn test_install_all_calls_runner_for_each_pkg_man() {
+        let config = sample_config();
+        let executor = Executor::new(&config);
+        let mock = MockRunner::new();
+        executor.install_all_with_runner(&mock);
+
+        let installs = mock.install_calls.lock().unwrap();
+        assert_eq!(installs.len(), 1);
+        assert_eq!(installs[0].0, "apt");
+        assert_eq!(installs[0].1, vec!["zoxide"]);
     }
 
-    // test whether the generated install command matches the pre-determined target command.
     #[test]
-    fn test_install() {
+    fn test_install_custom_packages_calls_shell_for_steps_and_post() {
+        let config = sample_config();
+        let executor = Executor::new(&config);
+        let mock = MockRunner::new();
+        executor.install_custom_packages_with_runner(&mock);
 
+        let shells = mock.shell_calls.lock().unwrap();
+        assert_eq!(shells.len(), 2);
+        assert!(shells[0].contains("git clone"));
+        assert_eq!(shells[1], "nvim --version");
+    }
+
+    #[test]
+    fn test_install_empty_config_does_nothing() {
+        let config = Config::new();
+        let executor = Executor::new(&config);
+        let mock = MockRunner::new();
+        executor.install_all_with_runner(&mock);
+
+        let installs = mock.install_calls.lock().unwrap();
+        let shells = mock.shell_calls.lock().unwrap();
+        assert!(installs.is_empty());
+        assert!(shells.is_empty());
     }
 }

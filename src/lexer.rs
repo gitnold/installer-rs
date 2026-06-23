@@ -55,6 +55,7 @@ impl PartialEq for Tokens {
 }
 
 impl Tokens {
+    #[allow(dead_code)]
     pub fn new(args: Vec<Token>) -> Self {
         Self { options: args }
     }
@@ -128,10 +129,10 @@ impl Tokens {
 mod tests {
     use super::*;
     #[test]
-    fn test_parse() {
-        let test_strings = vec!["-h", "-p", "dnf", "-a", "zoxide", "-i", "-u", "-c", "echo $SHELL"];
+    fn test_parse_flags() {
+        // from_strs skips argv[0] (the program name), so prepend a dummy
+        let test_strings = vec!["prog", "-p", "dnf", "-a", "zoxide", "-i", "-u", "-c", "echo $SHELL"];
         let tokens = vec![
-            Token::Help,
             Token::PackageManager(PackageManager::Dnf),
             Token::AddPackage(String::from("zoxide")),
             Token::Install,
@@ -143,5 +144,21 @@ mod tests {
         let lexer = Tokens::from_strs(args);
 
         assert_eq!(lexer.options, tokens);
+    }
+
+    #[test]
+    fn test_parse_help_flag() {
+        let test_strings = vec!["prog", "-h"];
+        let args = test_strings.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        let lexer = Tokens::from_strs(args);
+        assert_eq!(lexer.options, vec![Token::Help]);
+    }
+
+    #[test]
+    fn test_parse_install_only() {
+        let test_strings = vec!["prog", "-i"];
+        let args = test_strings.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+        let lexer = Tokens::from_strs(args);
+        assert_eq!(lexer.options, vec![Token::Install]);
     }
 }
